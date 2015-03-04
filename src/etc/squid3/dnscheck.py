@@ -2,12 +2,12 @@
 
 import socket
 import sys
-from os import path, remove, close, chmod, rename
+from   os import path, remove, close, chmod, rename
 import subprocess
 import re
 import stat
-from tempfile import mkstemp, NamedTemporaryFile
-from shutil import move
+from   tempfile import mkstemp, NamedTemporaryFile
+from   shutil import move
 import iptables_config
 
 class Host:
@@ -20,7 +20,8 @@ class Host:
         return self.ip in iplist
 
     def getIp(self):
-        self.ip = gethostbyname(self.url)
+        # hopefully , this doesn't go through dnsmasq, or it will be kind of pointless
+        self.ip = socket.gethostbyname(self.url)
         return self
 
 hosts = [Host("apple", "apple.com"),
@@ -31,7 +32,6 @@ hosts = [Host("apple", "apple.com"),
          Host("apple6", "www.thinkdifferent.us"),
          Host("apple7", "www.appleiphonecell.com"),
          Host("google", "clients3.google.com")]
-
 
 
 # From http://stackoverflow.com/questions/39086/search-and-replace-a-line-in-a-file-in-python
