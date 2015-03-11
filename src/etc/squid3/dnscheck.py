@@ -9,36 +9,36 @@ import stat
 from   tempfile import mkstemp, NamedTemporaryFile
 from   shutil import move
 import iptables_config
-from   itertools import product
 
 
 #consts
 SQUID_HOSTS ='/etc/squid3/hosts'
+DN_CONF_FILE = '/etc/dnsmasq.conf'
+DN_PROC      = '/etc/init.d/dnsmasq'
 
-
-class Host:
+class Host(object):
     """
     basic class to for a host/address. Also handles dns lookups
     """
-    def __init__(self, name, url):
-        object.init(self)
+    def __init__(self, name, h_name):
+        object.__init__(self)
         self.name = name
-        self.url  = url
+        self.h_name  = h_name
         self.ip   = None
 
     def inList(self, ip_list):
-        return self.ip in iplist
+        return self.ip in ip_list
 
     def getIp(self):
         # hopefully , this doesn't go through dnsmasq, or it will be kind of pointless
-        self.ip = socket.gethostbyname(self.url)
+        self.ip = socket.gethostbyname(self.h_name)
         return self
 
     def dnsString(self):
-        return 'address=/' + self.url + '/' + self.ip
+        return 'address=/' + self.h_name + '/' + self.ip
 
     def searchString(self):
-        return 'address=/' + self.url
+        return 'address=/' + self.h_name
 
 class HostDict(object):
     """
@@ -46,14 +46,14 @@ class HostDict(object):
         in. I hope.
     """
     def __init__(self):
-        object.init(self)
+        object.__init__(self)
         self._dict = {}
 
-    def __getitem__(self, url):
-        return self._dict[url]
+    def __getitem__(self, h_name):
+        return self._dict[h_name]
 
-    def __setitem__(self, url, host):
-        self._dict[url] = host
+    def __setitem__(self, h_name, host):
+        self._dict[h_name] = host
         return self
 
     def has_key(self, key):
@@ -74,8 +74,8 @@ class HostDict(object):
     def keys(self):
         return self._dict.keys()
 
-    def addHost(self, name, url):
-        self._dict[url] = Host(name, url)
+    def addHost(self, name, h_name):
+        self._dict[h_name] = Host(name, h_name)
 
     def getIp(self):
         for i in self.itervalues():
@@ -95,11 +95,12 @@ def hosts_init():
     hosts.getIp()
 
 class DNSmasqconf(object):
-    file_name = '/etc/dnsmasq.conf'
-    proc_name = '/etc/init.d/dnsmasq'
-    line_re   =  re.compile(r'address=/(.*)/(.*)')
+    file_name = DN_CONF_FILE
+    proc_name = DN_PROC
+    line_re   =  re.compile(r'address=/(?P<name>.*)/(?P<addr>.*)')
+
     def __init__(self):
-        self.object.__init__()
+        object.__init__(self)
         self.lines = False
 
     def read(self):
@@ -117,14 +118,14 @@ class DNSmasqconf(object):
             match = self.line_re.search(a_line[0])
             if not match:
                 continue
-            a_line[0] = hosts[match.groups()[1]].dnsString()
+            a_line[0] = hosts[match.group('name')].dnsString()
 
 
     def close(self):
         "close and rename"
         self.lines = (i[0] + "\n" for i in self.lines)
         with open(self.file_name + '.tmp', 'w') as f:
-            f.writeline(self.lines)
+            f.writelines(self.lines)
         rename(self.file_name + '.tmp', self.file_name)
         chmod(self.file_name, 0644)
         iptables_config.add_rules()
@@ -142,7 +143,7 @@ def main():
     ip_list = [line.strip() for line in open(SQUID_HOSTS)]
 
     #if any address in the host list isn't in the ip_list
-    needs_updating = any([not i.inList(ip_list) for i in hosts.iteritems()])
+    needs_updating = any([not i.inList(ip_list) for i in hosts.itervalues()])
 
     if needs_updating or FORCE:
         D = DNSmasqconf()
